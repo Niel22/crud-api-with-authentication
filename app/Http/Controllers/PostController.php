@@ -2,138 +2,86 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\Post\CreatePost;
+use App\Actions\Post\DeletePost;
+use App\Actions\Post\ListPost;
+use App\Actions\Post\ShowPost;
+use App\Actions\Post\UpdatePost;
+use App\Http\Requests\CreatePostRequest;
+use App\Http\Requests\UpdatePostRequest;
 use App\Models\Post;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use App\Traits\ApiResponse;
 
 class PostController extends Controller
 {
-    public function index()
+    use ApiResponse;
+
+    public function index(ListPost $action)
     {
-        return Auth::user()->posts;
+        if($post = $action->execute()){
+            return $this->success($post);
+        }
+
+        return $this->error('This user has not created any post yet');
     }
 
 
     /**
      * Store a newly created resource in storage.
      */
-    public function store(Request $request)
+    public function store(CreatePostRequest $request, CreatePost $action)
     {
-        $rules = [
-            'title' => ['required', 'string'],
-            'description' => ['required'],
-        ];
 
-        $validator = Validator::make($request->all(), $rules);
-
-        if($validator->fails()){
-            return $validator->errors();
+        if($action->execute($request->all())){
+            return $this->success([], "Post Created Successfully");
         }
 
-        $data = $validator->validated();
-
-        $post = Auth::user()->posts()->create([
-            'title' => $data['title'],
-            'description' => $data['description']
-        ]);
-
-        if($post){
-            return response()->json([
-                'success' => true,
-                'status' => 201,
-                'message' => "Post Created successsfully",
-                'post' => $post
-            ], 201);
-        }else{
-            return response()->json([
-                'success' => false,
-                'status'=> 400,
-                'message' => "Problem occured when creating post",
-            ], 400);
-        }
+        return $this->error('Problem occured while creating post');
         
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Post $post)
+    public function show($id, ShowPost $action)
     {
-        if(Auth::id() != $post->user_id){
-            return response()->json([
-                'status' => 403,
-                'message' => "This is an Unauthorize access"
-            ], 403);
+        if($post = $action->execute($id)){
+            return $this->success($post);
         }
 
-        return $post;
+        return $this->error('Post not found');
+
+
     }
 
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Post $post)
+    public function update(UpdatePostRequest $request, UpdatePost $action, $id)
     {
-        if(Auth::id() != $post->user_id){
-            return response()->json([
-                'status' => 403,
-                'message' => "This is an Unauthorize access"
-            ], 403);
+        if($action->execute($id, $request->all())){
+            return $this->success([], 'Post Updated Successfully');
         }
 
-
-        $rules = [
-            'title' => ['required', 'string'],
-            'description' => ['required'],
-        ];
-
-        $validator = Validator::make($request->all(), $rules);
-
-        if($validator->fails()){
-            return $validator->errors();
-        }
-
-        $data = $validator->validated();
-
-        $post->update([
-            'title' => $data['title'],
-            'description' => $data['description']
-        ]);
-
-        return response()->json([
-            'success' => true,
-            'status' => 201,
-            'message' => "Post Updated successsfully",
-            'post' => $post
-        ], 201);
-
-
+        return $this->error('Problem updating post');
 
     }
 
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Post $post)
+    public function destroy($id, DeletePost $action)
     {
-        if(Auth::id() != $post->user_id){
-            return response()->json([
-                'status' => 403,
-                'message' => "This is an Unauthorize access"
-            ], 403);
+        
+        if($action->execute($id)){
+            return $this->success([], 'Post Deleted');
         }
 
-        $post->delete();
-
-        return response()->json([
-            'success' => true,
-            'status' => 201,
-            'message' => "Post Deleted",
-            'post' => $post
-        ], 201);
-
+        return $this->error('Problem deleting post');
 
     }
 }
